@@ -1,17 +1,21 @@
 const DEVICE_PIXEL_RATIO = window.devicePixelRatio || 1;
 console.log('DEVICE_PIXEL_RATIO', DEVICE_PIXEL_RATIO)
 
+// Start PIXI app
 let app = new PIXI.Application({
   width: 800 * DEVICE_PIXEL_RATIO,
   height: 600 * DEVICE_PIXEL_RATIO,
   background: '#1d1d1d'
 });
 
+// Append app to dom
 const gameContainer = document.getElementById('game-container');
 gameContainer.appendChild(app.view);
 
+// Scoreboard dom element
 const scoreboardContainer = document.getElementById('scoreboard');
 
+// Connect to websocket server
 const socket = io('ws://localhost:4000');
 
 const MOVEMENT_KEYS = ['w', 'a', 's', 'd'];
