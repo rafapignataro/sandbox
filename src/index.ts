@@ -3,6 +3,7 @@ import http from 'http';
 import cors from 'cors';
 import path from 'path';
 import { Server } from 'socket.io';
+import { createMap } from './map';
 
 const PORT = 4000;
 
@@ -54,6 +55,8 @@ type RawGameState = Omit<GameState, 'players'> & {
   players: Array<Player>;
 };
 
+const map = createMap();
+
 const gameState: GameState = {
   status: 'STOPPED',
   players: new Map(),
@@ -91,7 +94,8 @@ io.on('connection', socket => {
 
   socket.emit('OUTPUT_INITIAL_INFO', {
     player,
-    serverState: getRawGameState(gameState)
+    serverState: getRawGameState(gameState),
+    serverMap: map
   });
 
   socket.broadcast.emit('OUTPUT_PLAYER_CONNECTED', player);
@@ -104,19 +108,27 @@ io.on('connection', socket => {
     if (eventId) movingPlayer.eventId = eventId;
 
     if (direction === 'UP') {
-      movingPlayer.y -= movingPlayer.velocity;
+      if (movingPlayer.y - (movingPlayer.height / 2) - movingPlayer.velocity >= 0) {
+        movingPlayer.y -= movingPlayer.velocity;
+      }
     }
 
     if (direction === 'DOWN') {
-      movingPlayer.y += movingPlayer.velocity;
+      if (movingPlayer.y + (movingPlayer.height / 2) + movingPlayer.velocity <= map.height) {
+        movingPlayer.y += movingPlayer.velocity;
+      }
     }
 
     if (direction === 'LEFT') {
-      movingPlayer.x -= movingPlayer.velocity;
+      if (movingPlayer.x - (movingPlayer.width / 2) - movingPlayer.velocity >= 0) {
+        movingPlayer.x -= movingPlayer.velocity;
+      }
     }
 
     if (direction === 'RIGHT') {
-      movingPlayer.x += movingPlayer.velocity;
+      if (movingPlayer.x + (movingPlayer.width / 2) + movingPlayer.velocity <= map.width) {
+        movingPlayer.x += movingPlayer.velocity;
+      }
     }
   });
 

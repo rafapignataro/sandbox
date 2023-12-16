@@ -8,6 +8,7 @@ let app = new PIXI.Application({
   background: '#1d1d1d'
 });
 
+app.stage.scale.set(DEVICE_PIXEL_RATIO)
 // Append app to dom
 const gameContainer = document.getElementById('game-container');
 gameContainer.appendChild(app.view);
@@ -28,25 +29,24 @@ const playerInput = {
 const playerEvents = [];
 let eventId = 0;
 
-let clientState = {
+const clientState = {
   players: new Map(),
 }
 
-let playerId = null;
-
-// Handle player input
-(() => {
-
-})();
+const clientData = {
+  loaded: false,
+  playerId: null,
+  map: null,
+}
 
 document.addEventListener('keydown', (event) => {
   const { key } = event;
 
   if (!MOVEMENT_KEYS.includes(key)) return;
 
-  if (!playerId) return;
+  if (!clientData.playerId) return;
 
-  const player = clientState.players.get(playerId);
+  const player = clientState.players.get(clientData.playerId);
 
   if (!player) return;
 
@@ -88,18 +88,20 @@ document.addEventListener('keyup', (event) => {
     playerInput.right = false;
   };
 
-  console.log('MOVE STOP', key)
-
-  // Emit movement
   socket.emit('INPUT_PLAYER_MOVE', playerInput)
 });
 
-socket.on('OUTPUT_INITIAL_INFO', ({ player, serverState }) => {
-  playerId = player.id;
+socket.on('OUTPUT_INITIAL_INFO', ({ player, serverState, serverMap }) => {
+  clientData.playerId = player.id;
+  clientData.map = serverMap;
+
+  createMap(app, serverMap);
 
   for (const serverPlayer of serverState.players) {
     createPlayer(app, serverPlayer);
   }
+
+  clientData.loaded = true;
 });
 
 socket.on('OUTPUT_PLAYER_CONNECTED', serverPlayer => {
@@ -124,6 +126,8 @@ socket.on('OUTPUT_PLAYER_DISCONNECTED', serverPlayer => {
 
 // Transfer SERVER STATE to CLIENT STATE
 socket.on('OUTPUT_GAME_STATE', serverState => {
+  if (!clientData.loaded) return;
+
   for (const serverPlayer of serverState.players) {
     const clientPlayer = clientState.players.get(serverPlayer.id);
 
@@ -131,7 +135,7 @@ socket.on('OUTPUT_GAME_STATE', serverState => {
     clientPlayer.x = serverPlayer.x;
     clientPlayer.y = serverPlayer.y;
 
-    if (clientPlayer.id !== playerId) {
+    if (clientPlayer.id !== clientData.playerId) {
       gsap.to(clientPlayer, {
         x: serverPlayer.x,
         y: serverPlayer.y,
@@ -156,9 +160,11 @@ socket.on('OUTPUT_GAME_STATE', serverState => {
 });
 
 app.ticker.add((delta) => {
+  if (!clientData.loaded) return;
+
   // Client Prediction
   (() => {
-    const clientPlayer = clientState.players.get(playerId);
+    const clientPlayer = clientState.players.get(clientData.playerId);
 
     if (!clientPlayer) return;
 
@@ -220,11 +226,41 @@ function createPlayer(app, serverPlayer) {
 
   span.id = `player-${serverPlayer.id}`;
 
-  if (serverPlayer.id === playerId) span.setAttribute('data-player', true)
+  if (serverPlayer.id === clientData.playerId) span.setAttribute('data-player', true)
 
   span.className = 'w-full text-sm data-[player="true"]:text-purple-500';
   span.innerText = serverPlayer.id;
   scoreboardContainer.appendChild(span);
 
   return createdPlayer;
+}
+
+function createMap(app, serverMap) {
+  const { tiles, tileSize, tilesX, tilesY } = serverMap;
+
+  const tilesetTexture = PIXI.Texture.from('assets/tiles.png');
+
+  const mapContainer = new PIXI.Container();
+
+  for (let row = 0; row < tilesY; row++) {
+    for (let column = 0; column < tilesX; column++) {
+      const tileIndex = tiles[row][column];
+
+      const tile = new PIXI.Sprite(tilesetTexture);
+
+      tile.x = column * tileSize;
+      tile.y = row * tileSize;
+
+      tile.texture = new PIXI.Texture(
+        tilesetTexture,
+        new PIXI.Rectangle((tileIndex % 16) * tileSize, (tileIndex / 16) * tileSize, tileSize, tileSize)
+      );
+
+      mapContainer.addChild(tile);
+    }
+  }
+
+  app.stage.addChild(mapContainer);
+
+  return mapContainer;
 }
