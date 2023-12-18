@@ -223,8 +223,8 @@ app.ticker.add((delta) => {
     }
   })();
 
-  camera.x = player.x - app.view.clientWidth / 2;
-  camera.y = player.y - app.view.clientHeight / 2;
+  camera.x = lerp(camera.x, player.x - app.view.clientWidth / 2, 0.1);
+  camera.y = lerp(camera.y, player.y - app.view.clientHeight / 2, 0.1);
 
   // Camera does not leave map area
   // if (camera.x < 0) camera.x = 0;
@@ -301,4 +301,8 @@ function createMap(app, serverMap) {
   app.stage.addChild(mapContainer);
 
   return mapContainer;
+}
+
+function lerp(start, end, t) {
+  return start + t * (end - start);
 }
