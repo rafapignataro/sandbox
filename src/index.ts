@@ -70,8 +70,8 @@ io.on('connection', socket => {
 
   const player: Player = {
     id: socketId,
-    x: 200,
-    y: 200,
+    x: 100,
+    y: 100,
     width: 50,
     height: 50,
     velocity: 5,

@@ -1,20 +1,32 @@
 const DEVICE_PIXEL_RATIO = window.devicePixelRatio || 1;
-console.log('DEVICE_PIXEL_RATIO', DEVICE_PIXEL_RATIO)
+console.log('DEVICE_PIXEL_RATIO', DEVICE_PIXEL_RATIO);
+
+const screen = {
+  width: 800,
+  height: 600
+}
 
 // Start PIXI app
 let app = new PIXI.Application({
-  width: 800 * DEVICE_PIXEL_RATIO,
-  height: 600 * DEVICE_PIXEL_RATIO,
-  background: '#1d1d1d'
+  // width: 800 * DEVICE_PIXEL_RATIO,
+  // height: 600 * DEVICE_PIXEL_RATIO,
+  width: screen.width,
+  height: screen.height,
+  background: '#1d1d1d',
+  // resolution: DEVICE_PIXEL_RATIO
 });
 
-app.stage.scale.set(DEVICE_PIXEL_RATIO)
+// app.stage.scale.set(DEVICE_PIXEL_RATIO)
 // Append app to dom
 const gameContainer = document.getElementById('game-container');
 gameContainer.appendChild(app.view);
 
 // Scoreboard dom element
 const scoreboardContainer = document.getElementById('scoreboard');
+
+// Player info dom element
+const playerInfoContainer = document.getElementById('player_info');
+const serverPlayerInfoContainer = document.getElementById('server_player_info');
 
 // Connect to websocket server
 const socket = io('ws://localhost:4000');
@@ -93,9 +105,11 @@ document.addEventListener('keyup', (event) => {
 
 socket.on('OUTPUT_INITIAL_INFO', ({ player, serverState, serverMap }) => {
   clientData.playerId = player.id;
-  clientData.map = serverMap;
+  clientData.map = createMap(app, serverMap);
+  window.clientGame = clientData
 
-  createMap(app, serverMap);
+  clientData.map.x += 10;
+  clientData.map.y += 10;
 
   for (const serverPlayer of serverState.players) {
     createPlayer(app, serverPlayer);
@@ -145,6 +159,8 @@ socket.on('OUTPUT_GAME_STATE', serverState => {
       return;
     }
 
+    serverPlayerInfoContainer.innerHTML = `SERVER x: ${serverPlayer.x} y: ${serverPlayer.y}`;
+
     // Move current server position to client position
     const lastProcessedEventIndex = playerEvents.findIndex(event => event.eventId === serverPlayer.eventId);
 
@@ -156,52 +172,74 @@ socket.on('OUTPUT_GAME_STATE', serverState => {
       clientPlayer.x += event.dx;
       clientPlayer.y += event.dy;
     });
+
+    playerInfoContainer.innerHTML = `SERVER x: ${clientPlayer.x} y: ${clientPlayer.y}`;
   }
 });
+
+let once = null;
+
+const camera = {
+  x: 0,
+  y: 0,
+}
 
 app.ticker.add((delta) => {
   if (!clientData.loaded) return;
 
+  const player = clientState.players.get(clientData.playerId);
+
+  if (!player) return;
+
+  playerInfoContainer.innerHTML = `x: ${player.x} y: ${player.y}`;
   // Client Prediction
   (() => {
-    const clientPlayer = clientState.players.get(clientData.playerId);
-
-    if (!clientPlayer) return;
-
     if (playerInput.up) {
       eventId++;
-      clientPlayer.y -= clientPlayer.velocity;
-      playerEvents.push({ eventId, dx: 0, dy: -clientPlayer.velocity })
+      player.y -= player.velocity;
+      playerEvents.push({ eventId, dx: 0, dy: -player.velocity })
       socket.emit('INPUT_PLAYER_MOVE', 'UP', eventId);
     }
 
     if (playerInput.down) {
       eventId++;
-      clientPlayer.y += clientPlayer.velocity;
-      playerEvents.push({ eventId, dx: clientPlayer.velocity, dy: 0 })
+      player.y += player.velocity;
+      playerEvents.push({ eventId, dx: player.velocity, dy: 0 })
       socket.emit('INPUT_PLAYER_MOVE', 'DOWN', eventId);
     }
 
     if (playerInput.left) {
       eventId++;
-      clientPlayer.x -= clientPlayer.velocity;
-      playerEvents.push({ eventId, dx: -clientPlayer.velocity, dy: 0 })
+      player.x -= player.velocity;
+      playerEvents.push({ eventId, dx: -player.velocity, dy: 0 })
       socket.emit('INPUT_PLAYER_MOVE', 'LEFT', eventId);
     }
 
     if (playerInput.right) {
       eventId++;
-      clientPlayer.x += clientPlayer.velocity;
-      playerEvents.push({ eventId, dx: clientPlayer.velocity, dy: 0 })
+      player.x += player.velocity;
+      playerEvents.push({ eventId, dx: player.velocity, dy: 0 })
       socket.emit('INPUT_PLAYER_MOVE', 'RIGHT', eventId);
     }
   })();
 
+  camera.x = player.x - app.view.clientWidth / 2;
+  camera.y = player.y - app.view.clientHeight / 2;
+
+  // Camera does not leave map area
+  // if (camera.x < 0) camera.x = 0;
+  // if (camera.x > app.view.clientWidth) camera.x = app.view.clientWidth;
+  // if (camera.y < 0) camera.y = 0;
+  // if (camera.y > app.view.clientHeight) camera.y = app.view.clientHeight;
+
+  clientData.map.x = -camera.x;
+  clientData.map.y = -camera.y;
+
   // Player Movement
   (() => {
     for (const clientPlayer of Array.from(clientState.players.values())) {
-      clientPlayer.sprite.x = clientPlayer.x;
-      clientPlayer.sprite.y = clientPlayer.y;
+      clientPlayer.sprite.x = clientPlayer.x - camera.x;
+      clientPlayer.sprite.y = clientPlayer.y - camera.y;
     }
   })();
 });
