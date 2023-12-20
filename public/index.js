@@ -27,6 +27,7 @@ const scoreboardContainer = document.getElementById('scoreboard');
 // Player info dom element
 const playerInfoContainer = document.getElementById('player_info');
 const serverPlayerInfoContainer = document.getElementById('server_player_info');
+const cameraInfoContainer = document.getElementById('camera_info');
 
 // Connect to websocket server
 const socket = io('ws://localhost:4000');
@@ -150,12 +151,8 @@ socket.on('OUTPUT_GAME_STATE', serverState => {
     clientPlayer.y = serverPlayer.y;
 
     if (clientPlayer.id !== clientData.playerId) {
-      gsap.to(clientPlayer, {
-        x: serverPlayer.x,
-        y: serverPlayer.y,
-        duration: 0.25,
-        ease: 'none'
-      });
+      clientPlayer.x = lerp(clientPlayer.x, serverPlayer.x, 0.2);
+      clientPlayer.y = lerp(clientPlayer.y, serverPlayer.y, 0.2);
       return;
     }
 
@@ -177,12 +174,53 @@ socket.on('OUTPUT_GAME_STATE', serverState => {
   }
 });
 
-let once = null;
-
 const camera = {
   x: 0,
   y: 0,
 }
+
+setInterval(() => {
+  const player = clientState.players.get(clientData.playerId);
+
+  if (!player) return;
+
+  // Client Prediction
+  if (playerInput.up) {
+    if (player.y - (player.height / 2) - player.velocity >= 0) {
+      eventId++;
+      player.y -= player.velocity;
+      playerEvents.push({ eventId, dx: 0, dy: -player.velocity })
+      socket.emit('INPUT_PLAYER_MOVE', 'UP', eventId);
+    }
+  }
+
+  if (playerInput.down) {
+    if (player.y + (player.height / 2) + player.velocity <= clientData.map.height) {
+      eventId++;
+      player.y += player.velocity;
+      playerEvents.push({ eventId, dx: player.velocity, dy: 0 })
+      socket.emit('INPUT_PLAYER_MOVE', 'DOWN', eventId);
+    }
+  }
+
+  if (playerInput.left) {
+    if (player.x - (player.width / 2) - player.velocity >= 0) {
+      eventId++;
+      player.x -= player.velocity;
+      playerEvents.push({ eventId, dx: -player.velocity, dy: 0 })
+      socket.emit('INPUT_PLAYER_MOVE', 'LEFT', eventId);
+    }
+  }
+
+  if (playerInput.right) {
+    if (player.x + (player.width / 2) + player.velocity <= clientData.map.width) {
+      eventId++;
+      player.x += player.velocity;
+      playerEvents.push({ eventId, dx: player.velocity, dy: 0 })
+      socket.emit('INPUT_PLAYER_MOVE', 'RIGHT', eventId);
+    }
+  }
+}, 1000 / 60);
 
 app.ticker.add((delta) => {
   if (!clientData.loaded) return;
@@ -191,37 +229,8 @@ app.ticker.add((delta) => {
 
   if (!player) return;
 
-  playerInfoContainer.innerHTML = `x: ${player.x} y: ${player.y}`;
-  // Client Prediction
-  (() => {
-    if (playerInput.up) {
-      eventId++;
-      player.y -= player.velocity;
-      playerEvents.push({ eventId, dx: 0, dy: -player.velocity })
-      socket.emit('INPUT_PLAYER_MOVE', 'UP', eventId);
-    }
-
-    if (playerInput.down) {
-      eventId++;
-      player.y += player.velocity;
-      playerEvents.push({ eventId, dx: player.velocity, dy: 0 })
-      socket.emit('INPUT_PLAYER_MOVE', 'DOWN', eventId);
-    }
-
-    if (playerInput.left) {
-      eventId++;
-      player.x -= player.velocity;
-      playerEvents.push({ eventId, dx: -player.velocity, dy: 0 })
-      socket.emit('INPUT_PLAYER_MOVE', 'LEFT', eventId);
-    }
-
-    if (playerInput.right) {
-      eventId++;
-      player.x += player.velocity;
-      playerEvents.push({ eventId, dx: player.velocity, dy: 0 })
-      socket.emit('INPUT_PLAYER_MOVE', 'RIGHT', eventId);
-    }
-  })();
+  playerInfoContainer.innerHTML = `CLIENTE: x: ${player.x} y: ${player.y}`;
+  cameraInfoContainer.innerHTML = `CAMERA: x: ${camera.x}; y: ${camera.y}`;
 
   camera.x = lerp(camera.x, player.x - app.view.clientWidth / 2, 0.1);
   camera.y = lerp(camera.y, player.y - app.view.clientHeight / 2, 0.1);
@@ -304,5 +313,5 @@ function createMap(app, serverMap) {
 }
 
 function lerp(start, end, t) {
-  return start + t * (end - start);
+  return parseInt(start + t * (end - start));
 }
