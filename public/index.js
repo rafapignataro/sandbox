@@ -30,7 +30,7 @@ const serverPlayerInfoContainer = document.getElementById('server_player_info');
 const cameraInfoContainer = document.getElementById('camera_info');
 
 // Connect to websocket server
-const socket = io('ws://localhost:4000');
+const socket = io('https://sandbox-jra1.onrender.com');
 
 const MOVEMENT_KEYS = ['w', 'a', 's', 'd'];
 const playerInput = {
