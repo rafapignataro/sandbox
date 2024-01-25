@@ -12,18 +12,28 @@ There is a lot of work to do but this is a base functional code.
 
 ![sandbox-demo](https://github.com/rafapignataro/sandbox/assets/16678782/d6f2b183-c52f-4021-81a3-bd3083776983)
 
-## How to use 🚀
+## How to use 
 
-### 1. Clone the repository
+### 1. Clone the repository and access it
 
 ```sh
-git clone https://github.com/rafapignataro/graph-editor.git
+git clone https://github.com/rafapignataro/sandbox.git && cd sandbox
 ```
 
-### 2. Run the project
+### 2. Install the dependencies
 
-There are options:
+```sh
+npm install
+```
 
-- Open the **index.html** file in the browser
+### 2. Run the project 🚀
 
-- Run a **Web Server** serving the files or use for example VS Code Live Server extension
+Development
+```sh
+npm run dev
+```
+
+Production
+```sh
+npm run buil && npm run start
+```
